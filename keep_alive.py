@@ -4,7 +4,7 @@ from threading import Thread
 
 app = FastAPI()
 
-@app.get("/")
+@app.get("/", methods=["GET", "HEAD"])
 def home():
     return {"message": "Coding Ninjas SRM"}
 
