@@ -201,7 +201,7 @@ async def on_message(message):
 
 # Event listener to handle a hidden command
 @bot.event
-async def on_message(message):
+async def on_newmessage(message):
     # Ignore messages sent by the bot itself
     if message.author == bot.user:
         return
@@ -214,7 +214,7 @@ async def on_message(message):
             delete_after=15
         )
         # Delete the original /lund command message
-        await message.delete()
+        await message.delete(delay=15)
 
     # Ensure other commands still work
     await bot.process_commands(message)

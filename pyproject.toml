@@ -11,6 +11,8 @@ discord-py = "^2.4.0"
 firebase-admin = "^6.5.0"
 python-dotenv = "^1.0.1"
 flask = "^3.0.3"
+fastapi = "^0.115.0"
+uvicorn = "^0.30.6"
 
 
 [build-system]

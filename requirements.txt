@@ -1,0 +1,7 @@
+discord.py
+firebase
+firebase-admin
+fastapi
+uvicorn
+python-dotenv
+gunicorn
