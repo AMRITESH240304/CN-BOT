@@ -25,7 +25,7 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 # Command to create a new task (restricted to users with the 'Head' role)
 @bot.tree.command(name='create-task', description='Create a new task')
-async def create_task(interaction: discord.Interaction, task_name: str, description: str, due_date: str):
+async def create_task(interaction: discord.Interaction, task_name: str, description: str, due_date: str, link: str = None):
     required_roles = ['Head', 'mods']  # Specify the role names allowed to create tasks
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
@@ -44,7 +44,8 @@ async def create_task(interaction: discord.Interaction, task_name: str, descript
             "description": description,
             "due_date": due_date_timestamp,  # Store as Unix timestamp
             "assigned_role": None,
-            "status": "pending"
+            "status": "pending",
+            "link": link  # Store the link if provided
         }
         task_ref.set(task)
         await interaction.response.send_message(f"Task '{task_name}' created with ID: {task_ref.id}")
@@ -63,39 +64,54 @@ async def assign_task(interaction: discord.Interaction, task_id: str, role: disc
         await interaction.response.send_message(f"Task with ID {task_id} not found.")
 
 # Command to list all tasks
-@bot.tree.command(name='list-tasks', description='List all tasks')
-async def list_tasks(interaction: discord.Interaction):
+@bot.tree.command(name='list-tasks', description='List tasks optionally filtered by assigned role')
+async def list_tasks(interaction: discord.Interaction, role: discord.Role = None):
     tasks = db.collection('tasks').stream()
-    embed = discord.Embed(title="Tasks List", color=discord.Color.blue(), description="Here are all your tasks:")
+    embed = discord.Embed(title="Tasks List", color=discord.Color.orange(), description="Here are your tasks:")
 
     task_found = False
+
+    # Extract the role ID if a role mention is provided
+    role_id = str(role.id) if role else None
+
     for task in tasks:
         task_data = task.to_dict()
 
-        # Get the due date directly (it is a Unix timestamp stored as a string)
-        due_date_str = task_data['due_date']
+        # If role is provided, filter tasks by assigned_role, otherwise list all tasks
+        if role_id is None or task_data['assigned_role'] == role_id:
+            # Get the due date directly (it is a Unix timestamp stored as a string)
+            due_date_str = task_data['due_date']
 
-        # Convert the due date from Unix timestamp to datetime object
-        due_date_obj = datetime.fromtimestamp(int(due_date_str))
+            # Convert the due date from Unix timestamp to datetime object
+            due_date_obj = datetime.fromtimestamp(int(due_date_str))
 
-        # Convert the datetime object to a Unix timestamp for embed display
-        due_date_timestamp = int(due_date_obj.timestamp())
+            # Convert the datetime object to a Unix timestamp for embed display
+            due_date_timestamp = int(due_date_obj.timestamp())
 
-        embed.add_field(
-            name=f"Task ID: {task.id}",
-            value=f"**Name:** {task_data['task_name']}\n"
-                  f"**Description:** {task_data['description']}\n"
-                  f"**Due Date:** <t:{due_date_timestamp}:F>\n"  # Display as full date/time
-                  f"**Assigned Role:** {task_data['assigned_role'] if task_data['assigned_role'] else 'None'}\n"
-                  f"**Status:** {task_data['status']}",
-            inline=False
-        )
-        task_found = True
+            # Retrieve the role object using the assigned_role ID
+            assigned_role = interaction.guild.get_role(int(task_data['assigned_role'])) if task_data['assigned_role'] else None
+            assigned_role_name = assigned_role.name if assigned_role else "None"
+
+            embed_value = (
+                f"**Name:** {task_data['task_name']}\n"
+                f"**Description:** {task_data['description']}\n"
+                f"**Due Date:** <t:{due_date_timestamp}:F>\n"  # Display as full date/time
+                f"**Assigned Role:** {assigned_role_name}\n"
+                f"**Status:** {task_data['status']}\n"
+            )
+
+            # Add the link if it exists
+            if task_data.get('link'):
+                embed_value += f"**Link:** [Click Here]({task_data['link']})\n"
+
+            embed.add_field(name=f"Task ID: {task.id}", value=embed_value, inline=False)
+            task_found = True
 
     if not task_found:
-        embed.description = "No tasks found."
+        embed.description = "No tasks found." if role_id is None else f"No tasks found for role: {role.name}"
 
     await interaction.response.send_message(embed=embed)
+
 
 # Command to mark a task as completed
 @bot.tree.command(name='complete-task', description='Mark a task as completed')
@@ -119,6 +135,29 @@ async def delete_task(interaction: discord.Interaction, task_id: str):
     else:
         await interaction.response.send_message(f"Task with ID {task_id} not found.")
 
+@bot.tree.command(name='announce', description='Make an announcement in a specified channel')
+async def announce(interaction: discord.Interaction, channel: discord.TextChannel, message: str):
+    required_roles = ['Head', 'mods']  # Specify the role names allowed to make announcements
+    if any(role.name in required_roles for role in interaction.user.roles):
+        try:
+            # Create an embed with the announcement message
+            embed = discord.Embed(
+                title="📢 Announcement",
+                description=message,
+                color=discord.Color.orange(),  # You can change the color if you'd like
+                timestamp=datetime.utcnow()  # Set the current time as timestamp
+            )
+
+            # Send the embed to the specified channel
+            await channel.send(embed=embed)
+            await interaction.response.send_message(f"Announcement sent to {channel.mention}", ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message("I do not have permission to send messages in that channel.", ephemeral=True)
+        except discord.HTTPException:
+            await interaction.response.send_message("Failed to send the message. Please try again later.", ephemeral=True)
+    else:
+        await interaction.response.send_message("You do not have permission to make announcements.", ephemeral=True)
+
 # Command to update task description or due date
 # @bot.tree.command(name='update-task', description='Update task description or due date')
 # async def update_task(interaction: discord.Interaction, task_id: str, new_description: str, new_due_date: str):
@@ -140,6 +179,46 @@ async def delete_task(interaction: discord.Interaction, task_id: str):
 #         await interaction.response.send_message(f"Task with ID {task_id} not found.")
 
 # Register commands with the Discord server
+# Event listener to handle a hidden command
+@bot.event
+async def on_message(message):
+    # Ignore messages sent by the bot itself
+    if message.author == bot.user:
+        return
+
+    # Check if the message starts with /lund
+    if message.content.strip() == "/lund":
+        # Send the response and delete it after 15 seconds
+        await message.channel.send(
+            "yaha se lund phek ke maarunga pura parivar chud jayega pata bhi nhi chalega",
+            delete_after=15
+        )
+        # Delete the original /lund command message
+        await message.delete()
+
+    # Ensure other commands still work
+    await bot.process_commands(message)
+
+# Event listener to handle a hidden command
+@bot.event
+async def on_message(message):
+    # Ignore messages sent by the bot itself
+    if message.author == bot.user:
+        return
+
+    # Check if the message starts with /lund
+    if message.content.strip() == "/machuda":
+        # Send the response and delete it after 15 seconds
+        await message.channel.send(
+            "bhej teri maa ko",
+            delete_after=15
+        )
+        # Delete the original /lund command message
+        await message.delete()
+
+    # Ensure other commands still work
+    await bot.process_commands(message)
+    
 @bot.event
 async def on_ready():
     await bot.tree.sync()
