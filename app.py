@@ -182,25 +182,15 @@ async def on_message(message):
         # Delete the original /lund command message
         await message.delete()
 
-    # Ensure other commands still work
-    await bot.process_commands(message)
-
-# Event listener to handle a hidden command
-@bot.event
-async def on_newmessage(message):
-    # Ignore messages sent by the bot itself
-    if message.author == bot.user:
-        return
-
-    # Check if the message starts with /lund
+    # Check if the message starts with /machuda
     if message.content.strip() == "/machuda":
         # Send the response and delete it after 15 seconds
         await message.channel.send(
             "bhej teri maa ko",
             delete_after=15
         )
-        # Delete the original /lund command message
-        await message.delete(delay=15)
+        # Delete the original /machuda command message
+        await message.delete()
 
     # Ensure other commands still work
     await bot.process_commands(message)
