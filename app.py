@@ -100,6 +100,36 @@ async def list_tasks(interaction: discord.Interaction, role: discord.Role = None
 
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name='submit-task', description='Submit your task')
+async def submit_task(interaction: discord.Interaction, task_id: str, link: str):
+    await interaction.response.defer(ephemeral=True)
+
+    task_ref = db.collection('tasks').document(task_id)
+    task = task_ref.get()
+
+    if task.exists:
+        receiver_ref = task_ref.collection('receivers').document(str(interaction.user.id))
+        receiver = receiver_ref.get()
+
+        if receiver.exists:
+            receiver_data = receiver.to_dict()
+
+            if receiver_data.get('status') == 'completed':
+                await interaction.followup.send("You have already submitted this task.", ephemeral=True)
+                return
+
+            receiver_ref.update({
+                'status': 'completed',
+                'submission_link': link,
+                'submitted_at': datetime.now().timestamp()
+            })
+
+            await interaction.followup.send(f"Task '{task.get('task_name')}' submitted successfully with the link: {link}")
+        else:
+            await interaction.followup.send("Please use /receive to receive the task first.", ephemeral=True)
+    else:
+        await interaction.followup.send(f"Task with ID {task_id} not found.", ephemeral=True)
+
 
 # Command to mark a task as completed
 @bot.tree.command(name='complete-task', description='Mark a task as completed')
@@ -124,7 +154,7 @@ async def delete_task(interaction: discord.Interaction, task_id: str):
         await interaction.response.send_message(f"Task with ID {task_id} not found.")
 
 @bot.tree.command(name='announce', description='Make an announcement in a specified channel')
-async def announce(interaction: discord.Interaction, channel: discord.TextChannel, message: str):
+async def announce(interaction: discord.Interaction, channel: discord.TextChannel, message: str, role: discord.Role = None):
     required_roles = ['Head', 'mods']  # Specify the role names allowed to make announcements
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
@@ -135,7 +165,11 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
                 timestamp=datetime.utcnow()  # Set the current time as timestamp
             )
 
-            await channel.send(embed=embed)
+            # Send the role mention first if provided
+            mention_text = role.mention if role else ""
+            await channel.send(content=mention_text, embed=embed)
+
+            # Acknowledge the interaction with a message
             await interaction.response.send_message(f"Announcement sent to {channel.mention}", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("I do not have permission to send messages in that channel.", ephemeral=True)
@@ -143,6 +177,7 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
             await interaction.response.send_message("Failed to send the message. Please try again later.", ephemeral=True)
     else:
         await interaction.response.send_message("You do not have permission to make announcements.", ephemeral=True)
+
 
 @bot.tree.command(name='receive', description='To receive the task by individual members')
 async def task_receive(interaction: discord.Interaction, role: discord.Role, task_id: str):
@@ -174,6 +209,46 @@ async def task_receive(interaction: discord.Interaction, role: discord.Role, tas
             await interaction.followup.send(f"You're not authorized to receive this task.")
     else:
         await interaction.followup.send(f"Task with ID '{task_id}' not found.")
+
+@bot.tree.command(name='view-submissions', description='View all submitted tasks')
+async def view_submissions(interaction: discord.Interaction):
+    # Check if the user has the required 'Head' role
+    if not any(role.name == 'Head' for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+        return
+
+    # Fetch all tasks
+    tasks = db.collection('tasks').stream()
+    embed = discord.Embed(title="Submitted Tasks", color=discord.Color.blue())
+
+    task_found = False
+
+    for task in tasks:
+        task_data = task.to_dict()
+        task_id = task.id
+        task_name = task_data.get("task_name", "N/A")
+
+        # Fetch submissions for each task
+        submissions = task.reference.collection('receivers').where('status', '==', 'completed').stream()
+
+        for submission in submissions:
+            submission_data = submission.to_dict()
+            username = submission_data.get('user_name', 'Unknown User')
+            submission_link = submission_data.get('submission_link', 'No link provided')
+
+            # Add submission details to embed
+            embed.add_field(
+                name=f"Task Name: {task_name} (ID: {task_id})",
+                value=f"**Username:** {username}\n**Link:** [Submission Link]({submission_link})",
+                inline=False
+            )
+            task_found = True
+
+    if not task_found:
+        embed.description = "No submitted tasks found."
+
+    await interaction.response.send_message(embed=embed)
+
 
 # Command to update task description or due date
 # @bot.tree.command(name='update-task', description='Update task description or due date')
