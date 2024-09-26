@@ -144,6 +144,37 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
     else:
         await interaction.response.send_message("You do not have permission to make announcements.", ephemeral=True)
 
+@bot.tree.command(name='receive', description='To receive the task by individual members')
+async def task_receive(interaction: discord.Interaction, role: discord.Role, task_id: str):
+    required_roles = ['Head', 'mods','Ninjas'] 
+    user_name = interaction.user.display_name  
+
+    await interaction.response.defer()
+
+    task_ref = db.collection('tasks').document(task_id)
+    task = task_ref.get()
+
+    if task.exists:
+        task_data = task.to_dict()
+
+        if role.name in required_roles or task_data['assigned_role'] == str(role.id):
+            receivers_ref = task_ref.collection('receivers').document(str(interaction.user.id))  
+            
+            if not receivers_ref.get().exists:
+                receivers_ref.set({
+                    'user_name': user_name,
+                    'status': 'pending',  
+                    'received_at': datetime.now().timestamp()  
+                })
+
+                await interaction.followup.send(f"Task '{task_data['task_name']}' received by {user_name}.")
+            else:
+                await interaction.followup.send(f"You have already received the task '{task_data['task_name']}'.")
+        else:
+            await interaction.followup.send(f"You're not authorized to receive this task.")
+    else:
+        await interaction.followup.send(f"Task with ID '{task_id}' not found.")
+
 # Command to update task description or due date
 # @bot.tree.command(name='update-task', description='Update task description or due date')
 # async def update_task(interaction: discord.Interaction, task_id: str, new_description: str, new_due_date: str):
@@ -190,7 +221,7 @@ async def on_message(message):
             delete_after=15
         )
         # Delete the original /machuda command message
-        await message.delete()
+        await message.delete(delay = 15)
 
     # Ensure other commands still work
     await bot.process_commands(message)
