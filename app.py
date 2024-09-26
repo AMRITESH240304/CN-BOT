@@ -13,26 +13,21 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")
 
-# Firebase setup
 cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Discord bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
-# Command to create a new task (restricted to users with the 'Head' role)
 @bot.tree.command(name='create-task', description='Create a new task')
 async def create_task(interaction: discord.Interaction, task_name: str, description: str, due_date: str, link: str = None):
     required_roles = ['Head', 'mods']  # Specify the role names allowed to create tasks
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
-            # Convert the due date from string to datetime object
             due_date_obj = datetime.strptime(due_date, "%Y-%m-%d")
 
-            # Convert the datetime object to a Unix timestamp
             due_date_timestamp = str(int(due_date_obj.timestamp()))
         except ValueError:
             await interaction.response.send_message("Invalid date format. Please use YYYY-MM-DD", ephemeral=True)
@@ -71,24 +66,18 @@ async def list_tasks(interaction: discord.Interaction, role: discord.Role = None
 
     task_found = False
 
-    # Extract the role ID if a role mention is provided
     role_id = str(role.id) if role else None
 
     for task in tasks:
         task_data = task.to_dict()
 
-        # If role is provided, filter tasks by assigned_role, otherwise list all tasks
         if role_id is None or task_data['assigned_role'] == role_id:
-            # Get the due date directly (it is a Unix timestamp stored as a string)
             due_date_str = task_data['due_date']
 
-            # Convert the due date from Unix timestamp to datetime object
             due_date_obj = datetime.fromtimestamp(int(due_date_str))
 
-            # Convert the datetime object to a Unix timestamp for embed display
             due_date_timestamp = int(due_date_obj.timestamp())
 
-            # Retrieve the role object using the assigned_role ID
             assigned_role = interaction.guild.get_role(int(task_data['assigned_role'])) if task_data['assigned_role'] else None
             assigned_role_name = assigned_role.name if assigned_role else "None"
 
@@ -100,7 +89,6 @@ async def list_tasks(interaction: discord.Interaction, role: discord.Role = None
                 f"**Status:** {task_data['status']}\n"
             )
 
-            # Add the link if it exists
             if task_data.get('link'):
                 embed_value += f"**Link:** [Click Here]({task_data['link']})\n"
 
@@ -140,7 +128,6 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
     required_roles = ['Head', 'mods']  # Specify the role names allowed to make announcements
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
-            # Create an embed with the announcement message
             embed = discord.Embed(
                 title="📢 Announcement",
                 description=message,
@@ -148,7 +135,6 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
                 timestamp=datetime.utcnow()  # Set the current time as timestamp
             )
 
-            # Send the embed to the specified channel
             await channel.send(embed=embed)
             await interaction.response.send_message(f"Announcement sent to {channel.mention}", ephemeral=True)
         except discord.Forbidden:
@@ -187,7 +173,7 @@ async def on_message(message):
         return
 
     # Check if the message starts with /lund
-    if message.content.strip() == "/lund":
+    if message.content.strip() == "/lund" or message.content.strip() == "/machuda":
         # Send the response and delete it after 15 seconds
         await message.channel.send(
             "yaha se lund phek ke maarunga pura parivar chud jayega pata bhi nhi chalega",
