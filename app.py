@@ -158,19 +158,25 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
     required_roles = ['Head', 'mods']  # Specify the role names allowed to make announcements
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
+            # Step 1: Check if the role is @everyone
+            if role and role.is_default():  # is_default() returns True if it's @everyone
+                await channel.send("@everyone")  # Send @everyone as a standalone message
+            elif role:  # If a specific role is provided (not @everyone)
+                await channel.send(role.mention)  # Send the role mention
+
+            # Step 2: Create and send the embedded message
             embed = discord.Embed(
                 title="📢 Announcement",
-                description=message,
-                color=discord.Color.orange(),  # You can change the color if you'd like
-                timestamp=datetime.utcnow()  # Set the current time as timestamp
+                description=message,  # Keep the original message
+                color=discord.Color.orange(),
+                timestamp=datetime.utcnow()
             )
 
-            # Send the role mention first if provided
-            mention_text = role.mention if role else ""
-            await channel.send(content=mention_text, embed=embed)
+            await channel.send(embed=embed)  # Send the embedded announcement
 
-            # Acknowledge the interaction with a message
+            # Acknowledge the interaction with an ephemeral message
             await interaction.response.send_message(f"Announcement sent to {channel.mention}", ephemeral=True)
+
         except discord.Forbidden:
             await interaction.response.send_message("I do not have permission to send messages in that channel.", ephemeral=True)
         except discord.HTTPException:
