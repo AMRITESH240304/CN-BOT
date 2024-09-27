@@ -256,23 +256,57 @@ async def view_submissions(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
-@bot.tree.command(name='receive-task', description='Get the count of submissions for a specific task')
+@bot.tree.command(name='receive-list', description='Get the count of submissions and student names for a specific task')
 async def receive_task(interaction: discord.Interaction, task_id: str):
+    
+    if not any(role.name in ['Head', 'Mods'] for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+        return
     try:
+        # Fetch the task with the given task ID
         task_ref = db.collection('tasks').document(task_id)
         task_snapshot = task_ref.get()
 
+        # Check if the task exists
         if not task_snapshot.exists:
             await interaction.response.send_message(f"Task with ID {task_id} not found.", ephemeral=True)
             return
 
-        receivers = task_ref.collection('receivers').stream()
-        count = sum(1 for _ in receivers)
+        # Get task details (name)
+        task_data = task_snapshot.to_dict()
+        task_name = task_data.get("task_name", "Unnamed Task")
 
-        await interaction.response.send_message(f"Task ID: {task_id} has {count} submissions.", ephemeral=True)
+        # Get the submissions from the 'receivers' subcollection
+        receivers = task_ref.collection('receivers').stream()
+        receiver_names = []
+        count = 0
+
+        for receiver in receivers:
+            submission_data = receiver.to_dict()
+            user_name = submission_data.get('user_name', 'Unknown User')
+            receiver_names.append(user_name)
+            count += 1
+
+        # Create a column of student names (one name per line)
+        student_names = "\n".join(receiver_names) if receiver_names else "No submissions yet."
+
+        # Create the embed message
+        embed = discord.Embed(
+            title=f"Task: {task_name}",
+            description=f"Task ID: {task_id}",
+            color=discord.Color.orange()
+        )
+
+        # Add fields to embed
+        embed.add_field(name="Submissions Count", value=f"{count} submissions", inline=False)
+        embed.add_field(name="Students Who Submitted", value=student_names, inline=False)
+
+        # Send the embed message
+        await interaction.response.send_message(embed=embed)
 
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
+
 
 
 # Command to update task description or due date
