@@ -330,6 +330,135 @@ async def receive_task(interaction: discord.Interaction, task_id: str):
 #         await interaction.response.send_message(f"Task with ID {task_id} not found.")
 
 # Register commands with the Discord server
+@bot.tree.command(name='help', description='Displays the list of available commands')
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="Bot Commands",
+        description="Here is a list of all available commands and their usage:",
+        color=discord.Color.orange()
+    )
+
+    embed.add_field(
+        name="/create-task",
+        value=(
+            "**Description**: Create a new task.\n"
+            "**Usage**: `/create-task task_name description due_date [link]`\n"
+            "**Parameters**:\n"
+            "- `task_name` (required): The name of the task.\n"
+            "- `description` (required): A brief description of the task.\n"
+            "- `due_date` (required): Task due date (format: YYYY-MM-DD).\n"
+            "- `link` (optional): Optional link related to the task."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/assign-task",
+        value=(
+            "**Description**: Assign a task to a specific role.\n"
+            "**Usage**: `/assign-task task_id role`\n"
+            "**Parameters**:\n"
+            "- `task_id` (required): The ID of the task to be assigned.\n"
+            "- `role` (required): The role to which the task will be assigned."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/list-tasks",
+        value=(
+            "**Description**: List all tasks, optionally filtered by a role.\n"
+            "**Usage**: `/list-tasks [role]`\n"
+            "**Parameters**:\n"
+            "- `role` (optional): Filter tasks assigned to a specific role. If omitted, all tasks are shown."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/submit-task",
+        value=(
+            "**Description**: Submit a task you have completed.\n"
+            "**Usage**: `/submit-task task_id link`\n"
+            "**Parameters**:\n"
+            "- `task_id` (required): The ID of the task you are submitting.\n"
+            "- `link` (required): A link to the submission (e.g., a document or resource)."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/complete-task",
+        value=(
+            "**Description**: Mark a task as completed.\n"
+            "**Usage**: `/complete-task task_id`\n"
+            "**Parameters**:\n"
+            "- `task_id` (required): The ID of the task to be marked as completed."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/delete-task",
+        value=(
+            "**Description**: Delete a task (restricted to 'Head' role).\n"
+            "**Usage**: `/delete-task task_id`\n"
+            "**Parameters**:\n"
+            "- `task_id` (required): The ID of the task to be deleted."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/announce",
+        value=(
+            "**Description**: Make an announcement in a specified channel.\n"
+            "**Usage**: `/announce channel message [role]`\n"
+            "**Parameters**:\n"
+            "- `channel` (required): The text channel where the announcement will be made.\n"
+            "- `message` (required): The announcement text.\n"
+            "- `role` (optional): Mention a specific role or use `@everyone`."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/receive",
+        value=(
+            "**Description**: Receive a task by individual members.\n"
+            "**Usage**: `/receive role task_id`\n"
+            "**Parameters**:\n"
+            "- `role` (required): The role you belong to or are assigned to.\n"
+            "- `task_id` (required): The ID of the task to receive."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/view-submissions",
+        value=(
+            "**Description**: View all submitted tasks (restricted to 'Head' role).\n"
+            "**Usage**: `/view-submissions`\n"
+            "**Parameters**: None."
+        ),
+        inline=False
+    )
+
+    embed.add_field(
+        name="/receive-list",
+        value=(
+            "**Description**: Get a count of submissions and the names of students for a specific task.\n"
+            "**Usage**: `/receive-list task_id`\n"
+            "**Parameters**:\n"
+            "- `task_id` (required): The ID of the task to view the submissions for."
+        ),
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+
 # Event listener to handle a hidden command
 @bot.event
 async def on_message(message):
