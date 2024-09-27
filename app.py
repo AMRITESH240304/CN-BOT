@@ -256,6 +256,25 @@ async def view_submissions(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name='receive-task', description='Get the count of submissions for a specific task')
+async def receive_task(interaction: discord.Interaction, task_id: str):
+    try:
+        task_ref = db.collection('tasks').document(task_id)
+        task_snapshot = task_ref.get()
+
+        if not task_snapshot.exists:
+            await interaction.response.send_message(f"Task with ID {task_id} not found.", ephemeral=True)
+            return
+
+        receivers = task_ref.collection('receivers').stream()
+        count = sum(1 for _ in receivers)
+
+        await interaction.response.send_message(f"Task ID: {task_id} has {count} submissions.", ephemeral=True)
+
+    except Exception as e:
+        await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
+
+
 # Command to update task description or due date
 # @bot.tree.command(name='update-task', description='Update task description or due date')
 # async def update_task(interaction: discord.Interaction, task_id: str, new_description: str, new_due_date: str):
