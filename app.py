@@ -23,7 +23,7 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 @bot.tree.command(name='create-task', description='Create a new task')
 async def create_task(interaction: discord.Interaction, task_name: str, description: str, due_date: str, link: str = None):
-    required_roles = ['Head', 'mods']  # Specify the role names allowed to create tasks
+    required_roles = ['Seniors', 'mods']  # Specify the role names allowed to create tasks
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
             due_date_obj = datetime.strptime(due_date, "%Y-%m-%d")
@@ -134,6 +134,9 @@ async def submit_task(interaction: discord.Interaction, task_id: str, link: str)
 # Command to mark a task as completed
 @bot.tree.command(name='complete-task', description='Mark a task as completed')
 async def complete_task(interaction: discord.Interaction, task_id: str):
+    if not any(role.name in ['Seniors', 'mods'] for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+        return
     task_ref = db.collection('tasks').document(task_id)
     task = task_ref.get()
     if task.exists:
@@ -155,7 +158,7 @@ async def delete_task(interaction: discord.Interaction, task_id: str):
 
 @bot.tree.command(name='announce', description='Make an announcement in a specified channel')
 async def announce(interaction: discord.Interaction, channel: discord.TextChannel, message: str, role: discord.Role = None):
-    required_roles = ['Head', 'mods']  # Specify the role names allowed to make announcements
+    required_roles = ['Seniors', 'mods']  # Specify the role names allowed to make announcements
     if any(role.name in required_roles for role in interaction.user.roles):
         try:
             # Step 1: Check if the role is @everyone
@@ -187,7 +190,7 @@ async def announce(interaction: discord.Interaction, channel: discord.TextChanne
 
 @bot.tree.command(name='receive', description='To receive the task by individual members')
 async def task_receive(interaction: discord.Interaction, role: discord.Role, task_id: str):
-    required_roles = ['Head', 'mods','Ninjas'] 
+    required_roles = ['Seniors', 'mods','Ninjas'] 
     user_name = interaction.user.display_name  
 
     await interaction.response.defer()
@@ -219,7 +222,7 @@ async def task_receive(interaction: discord.Interaction, role: discord.Role, tas
 @bot.tree.command(name='view-submissions', description='View all submitted tasks')
 async def view_submissions(interaction: discord.Interaction):
     # Check if the user has the required 'Head' role
-    if not any(role.name == 'Head' for role in interaction.user.roles):
+    if not any(role.name == 'Seniors' for role in interaction.user.roles):
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
@@ -259,7 +262,7 @@ async def view_submissions(interaction: discord.Interaction):
 @bot.tree.command(name='receive-list', description='Get the count of submissions and student names for a specific task')
 async def receive_task(interaction: discord.Interaction, task_id: str):
     
-    if not any(role.name in ['Head', 'Mods'] for role in interaction.user.roles):
+    if not any(role.name in ['Seniors', 'mods'] for role in interaction.user.roles):
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
     try:
